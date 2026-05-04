@@ -12,6 +12,7 @@ public:
     explicit StarMapView(QWidget *parent = nullptr);
 
     void setEntries(const QList<EmotionEntry> &entries);
+    void setSelectedEntryId(const QString &id);
 
 signals:
     void entrySelected(const QString &id);
@@ -25,4 +26,5 @@ private:
     QPointF positionForEntry(int index, const EmotionEntry &entry) const;
 
     QList<EmotionEntry> m_entries;
+    QString m_selectedEntryId;
 };

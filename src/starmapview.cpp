@@ -41,6 +41,11 @@ void StarMapView::setEntries(const QList<EmotionEntry> &entries) {
     rebuildScene();
 }
 
+void StarMapView::setSelectedEntryId(const QString &id) {
+    m_selectedEntryId = id;
+    rebuildScene();
+}
+
 void StarMapView::resizeEvent(QResizeEvent *event) {
     QGraphicsView::resizeEvent(event);
     fitInView(sceneRect(), Qt::KeepAspectRatioByExpanding);
@@ -74,13 +79,16 @@ void StarMapView::rebuildScene() {
         const qreal radius = 12.0 + entry.intensity * 4.0;
         auto *item = new StarItem(entry.id, QRectF(center.x() - radius, center.y() - radius, radius * 2, radius * 2));
         item->setBrush(EmotionEntry::colorForEmotion(entry.emotion));
-        item->setPen(QPen(Qt::white, 1.5));
+        const bool isSelected = entry.id == m_selectedEntryId;
+        item->setPen(QPen(isSelected ? QColor("#ffd166") : Qt::white, isSelected ? 3.0 : 1.5));
         item->setToolTip(QString("%1\n%2").arg(entry.title, entry.emotion));
+        item->setZValue(isSelected ? 2 : 1);
         scene()->addItem(item);
 
         auto *label = scene()->addText(entry.title.left(10));
-        label->setDefaultTextColor(Qt::white);
+        label->setDefaultTextColor(isSelected ? QColor("#ffd166") : Qt::white);
         label->setPos(center.x() + radius + 6, center.y() - radius);
+        label->setZValue(isSelected ? 2 : 1);
     }
 }
 

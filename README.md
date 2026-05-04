@@ -6,7 +6,10 @@ A Qt desktop journal that turns each emotional memory into a star.
 
 - Create a journal entry with title, date, emotion, intensity, energy, and note
 - Visualize entries as stars on an emotional sky map
-- Click the archive list to inspect a saved memory
+- Click the archive list or a star to inspect a saved memory
+- Edit an existing memory and update the corresponding star
+- Delete a saved memory from the sky
+- Start with demo entries so the scene looks alive immediately
 - Save entries locally as JSON and load them automatically next time
 
 ## Tech Stack

@@ -13,6 +13,7 @@ class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
 class QPlainTextEdit;
+class QPushButton;
 class QSlider;
 class StarMapView;
 
@@ -24,6 +25,9 @@ public:
 
 private slots:
     void addEntry();
+    void editSelectedEntry();
+    void deleteSelectedEntry();
+    void clearEditor();
     void handleListSelectionChanged();
     void handleStarSelection(const QString &id);
 
@@ -33,11 +37,17 @@ private:
     void refreshViews();
     void selectEntryById(const QString &id);
     void showEntryDetails(const EmotionEntry *entry);
+    void populateEditor(const EmotionEntry &entry);
+    EmotionEntry *findEntryById(const QString &id);
+    const EmotionEntry *findEntryById(const QString &id) const;
+    QList<EmotionEntry> demoEntries() const;
     EmotionEntry currentFormEntry() const;
     QString dataFilePath() const;
 
     QList<EmotionEntry> m_entries;
     JournalRepository m_repository;
+    QString m_selectedEntryId;
+    QString m_editingEntryId;
 
     QLineEdit *m_titleEdit = nullptr;
     QComboBox *m_emotionCombo = nullptr;
@@ -52,4 +62,8 @@ private:
     QLabel *m_detailIcon = nullptr;
     QPlainTextEdit *m_detailNote = nullptr;
     StarMapView *m_starMapView = nullptr;
+    QPushButton *m_saveButton = nullptr;
+    QPushButton *m_editButton = nullptr;
+    QPushButton *m_deleteButton = nullptr;
+    QPushButton *m_clearButton = nullptr;
 };

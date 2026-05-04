@@ -71,8 +71,12 @@ void MainWindow::buildUi() {
     m_noteEdit->setPlaceholderText("What happened today? What do you want future-you to remember?");
     m_noteEdit->setMinimumHeight(120);
 
-    auto *saveButton = new QPushButton("Save As A Star", formBox);
-    connect(saveButton, &QPushButton::clicked, this, &MainWindow::addEntry);
+    m_saveButton = new QPushButton("Save As A Star", formBox);
+    connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::addEntry);
+
+    auto *editorActionRow = new QHBoxLayout();
+    m_clearButton = new QPushButton("Clear", formBox);
+    connect(m_clearButton, &QPushButton::clicked, this, &MainWindow::clearEditor);
 
     formLayout->addWidget(new QLabel("Title", formBox));
     formLayout->addWidget(m_titleEdit);
@@ -86,7 +90,9 @@ void MainWindow::buildUi() {
     formLayout->addWidget(m_energySlider);
     formLayout->addWidget(new QLabel("Note", formBox));
     formLayout->addWidget(m_noteEdit);
-    formLayout->addWidget(saveButton);
+    formLayout->addWidget(m_saveButton);
+    editorActionRow->addWidget(m_clearButton);
+    formLayout->addLayout(editorActionRow);
 
     auto *listBox = new QGroupBox("Star Archive", leftPanel);
     auto *listLayout = new QVBoxLayout(listBox);
@@ -95,8 +101,16 @@ void MainWindow::buildUi() {
     connect(m_entryList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem *, QListWidgetItem *) {
         handleListSelectionChanged();
     });
+    auto *listButtonRow = new QHBoxLayout();
+    m_editButton = new QPushButton("Load For Edit", listBox);
+    m_deleteButton = new QPushButton("Delete", listBox);
+    connect(m_editButton, &QPushButton::clicked, this, &MainWindow::editSelectedEntry);
+    connect(m_deleteButton, &QPushButton::clicked, this, &MainWindow::deleteSelectedEntry);
     listLayout->addWidget(m_summaryLabel);
     listLayout->addWidget(m_entryList);
+    listButtonRow->addWidget(m_editButton);
+    listButtonRow->addWidget(m_deleteButton);
+    listLayout->addLayout(listButtonRow);
 
     leftLayout->addWidget(title);
     leftLayout->addWidget(subtitle);
@@ -163,13 +177,20 @@ void MainWindow::buildUi() {
             font-weight: 700;
         }
         QPushButton:hover { background: #ffd166; }
+        QPushButton#dangerButton { background: #ff6b57; color: white; }
+        QPushButton#dangerButton:hover { background: #ff826f; }
         QListWidget::item { padding: 8px; }
         QListWidget::item:selected { background: #23395d; border-radius: 8px; }
     )");
+    m_deleteButton->setObjectName("dangerButton");
 }
 
 void MainWindow::loadEntries() {
     m_entries = m_repository.load();
+    if (m_entries.isEmpty()) {
+        m_entries = demoEntries();
+        m_repository.save(m_entries);
+    }
 }
 
 void MainWindow::refreshViews() {
@@ -204,21 +225,30 @@ void MainWindow::refreshViews() {
             .arg(joyCount));
 
     m_starMapView->setEntries(m_entries);
-    if (!m_entries.isEmpty() && m_entryList->currentRow() < 0) {
-        m_entryList->setCurrentRow(0);
+    m_starMapView->setSelectedEntryId(m_selectedEntryId);
+    if (!m_entries.isEmpty() && (m_selectedEntryId.isEmpty() || !findEntryById(m_selectedEntryId))) {
+        m_selectedEntryId = m_entries.front().id;
+    }
+
+    if (!m_selectedEntryId.isEmpty()) {
+        selectEntryById(m_selectedEntryId);
     } else if (m_entries.isEmpty()) {
+        m_selectedEntryId.clear();
         showEntryDetails(nullptr);
     }
 }
 
 void MainWindow::selectEntryById(const QString &id) {
+    m_selectedEntryId = id;
     for (int row = 0; row < m_entryList->count(); ++row) {
         auto *item = m_entryList->item(row);
         if (item->data(Qt::UserRole).toString() == id) {
             m_entryList->setCurrentRow(row);
+            m_starMapView->setSelectedEntryId(id);
             return;
         }
     }
+    m_starMapView->setSelectedEntryId(id);
 }
 
 void MainWindow::showEntryDetails(const EmotionEntry *entry) {
@@ -240,9 +270,53 @@ void MainWindow::showEntryDetails(const EmotionEntry *entry) {
     m_detailNote->setPlainText(entry->note);
 }
 
+void MainWindow::populateEditor(const EmotionEntry &entry) {
+    m_editingEntryId = entry.id;
+    m_titleEdit->setText(entry.title);
+    m_emotionCombo->setCurrentText(entry.emotion);
+    m_dateEdit->setDate(entry.date);
+    m_intensitySlider->setValue(entry.intensity);
+    m_energySlider->setValue(entry.energy);
+    m_noteEdit->setPlainText(entry.note);
+    m_saveButton->setText("Update Star");
+    m_summaryLabel->setText("Editing an existing memory. Save to update the selected star.");
+}
+
+EmotionEntry *MainWindow::findEntryById(const QString &id) {
+    for (auto &entry : m_entries) {
+        if (entry.id == id) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+const EmotionEntry *MainWindow::findEntryById(const QString &id) const {
+    for (const auto &entry : m_entries) {
+        if (entry.id == id) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+QList<EmotionEntry> MainWindow::demoEntries() const {
+    return {
+        {"demo-1", "Late-night relief", "Calm",
+         "Finished a hard assignment draft and finally felt my shoulders drop. The sky looked quiet on the way home.",
+         QDate::currentDate().addDays(-2), 3, 2},
+        {"demo-2", "A bright class moment", "Joy",
+         "Had a small breakthrough while discussing ideas. It felt like a tiny constellation suddenly connecting.",
+         QDate::currentDate().addDays(-1), 5, 4},
+        {"demo-3", "Future me is nervous", "Anxiety",
+         "A lot is happening at once, but writing it down made the feeling less blurry and more manageable.",
+         QDate::currentDate(), 4, 5},
+    };
+}
+
 EmotionEntry MainWindow::currentFormEntry() const {
     EmotionEntry entry;
-    entry.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    entry.id = m_editingEntryId.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : m_editingEntryId;
     entry.title = m_titleEdit->text().trimmed();
     entry.emotion = m_emotionCombo->currentText();
     entry.note = m_noteEdit->toPlainText().trimmed();
@@ -264,32 +338,66 @@ void MainWindow::addEntry() {
         return;
     }
 
-    m_entries.prepend(entry);
+    if (m_editingEntryId.isEmpty()) {
+        m_entries.prepend(entry);
+    } else if (auto *stored = findEntryById(m_editingEntryId)) {
+        *stored = entry;
+    }
     m_repository.save(m_entries);
     refreshViews();
     selectEntryById(entry.id);
+    clearEditor();
+}
 
+void MainWindow::editSelectedEntry() {
+    if (const auto *entry = findEntryById(m_selectedEntryId)) {
+        populateEditor(*entry);
+    }
+}
+
+void MainWindow::deleteSelectedEntry() {
+    if (m_selectedEntryId.isEmpty()) {
+        return;
+    }
+
+    m_entries.erase(std::remove_if(m_entries.begin(), m_entries.end(), [this](const EmotionEntry &entry) {
+                       return entry.id == m_selectedEntryId;
+                   }),
+                    m_entries.end());
+    m_repository.save(m_entries);
+    m_selectedEntryId.clear();
+    if (m_editingEntryId == m_selectedEntryId) {
+        m_editingEntryId.clear();
+    }
+    clearEditor();
+    refreshViews();
+}
+
+void MainWindow::clearEditor() {
+    m_editingEntryId.clear();
     m_titleEdit->clear();
     m_noteEdit->clear();
     m_intensitySlider->setValue(3);
     m_energySlider->setValue(3);
     m_emotionCombo->setCurrentIndex(0);
     m_dateEdit->setDate(QDate::currentDate());
+    m_saveButton->setText("Save As A Star");
 }
 
 void MainWindow::handleListSelectionChanged() {
     auto *item = m_entryList->currentItem();
     if (!item) {
+        m_selectedEntryId.clear();
+        m_starMapView->setSelectedEntryId(QString());
         showEntryDetails(nullptr);
         return;
     }
 
     const auto id = item->data(Qt::UserRole).toString();
-    for (const auto &entry : m_entries) {
-        if (entry.id == id) {
-            showEntryDetails(&entry);
-            return;
-        }
+    m_selectedEntryId = id;
+    m_starMapView->setSelectedEntryId(id);
+    if (const auto *entry = findEntryById(id)) {
+        showEntryDetails(entry);
     }
 }
 
