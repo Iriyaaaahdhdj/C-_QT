@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QApplication::setApplicationName("Emotion Star Journal");
+    QApplication::setApplicationName("情绪星图日记");
     QApplication::setOrganizationName("Iriya");
 
     MainWindow window;
