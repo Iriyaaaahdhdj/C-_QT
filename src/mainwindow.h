@@ -76,6 +76,7 @@ private:
     QPlainTextEdit *m_noteEdit = nullptr;
     QLineEdit *m_tagEdit = nullptr;
     QListWidget *m_entryList = nullptr;
+    QListWidget *m_timelineList = nullptr;
     QLabel *m_summaryLabel = nullptr;
     QLabel *m_statMoodValue = nullptr;
     QLabel *m_statMoodLabel = nullptr;
@@ -93,11 +94,12 @@ private:
     QLabel *m_filterHintLabel = nullptr;
     QLabel *m_weekTrendLabel = nullptr;
     QLabel *m_monthTrendLabel = nullptr;
+    QLabel *m_timelineSummaryLabel = nullptr;
     QList<QLabel *> m_calendarCells;
     QLabel *m_detailTitle = nullptr;
     QLabel *m_detailMeta = nullptr;
     QLabel *m_detailIcon = nullptr;
-    QPlainTextEdit *m_detailNote = nullptr;
+    QLabel *m_detailNote = nullptr;
     StarMapView *m_starMapView = nullptr;
     QStackedWidget *m_leftStack = nullptr;
     QPushButton *m_saveButton = nullptr;

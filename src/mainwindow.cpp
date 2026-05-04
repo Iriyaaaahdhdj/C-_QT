@@ -143,6 +143,18 @@ QString trendReadingForEntry(const EmotionEntry &entry) {
     }
     return "土行轻压，这份不安正在寻找落点，写出来会让它变得更可被整理。";
 }
+
+QString compactPreviewText(const QString &text, int maxLength = 88) {
+    QString normalized = text;
+    normalized.replace("\r\n", "\n");
+    normalized.replace('\r', '\n');
+    normalized.replace('\n', ' ');
+    normalized = normalized.simplified();
+    if (normalized.size() <= maxLength) {
+        return normalized;
+    }
+    return normalized.left(maxLength - 1) + "…";
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -276,6 +288,37 @@ void MainWindow::buildUi() {
     filterLayout->addWidget(filterIntro);
     filterLayout->addWidget(m_tagFilterCombo);
     filterLayout->addWidget(m_filterHintLabel);
+
+    auto *timelineBox = new QGroupBox("我的标签时间轴", homePage);
+    auto *timelineLayout = new QVBoxLayout(timelineBox);
+    timelineLayout->setContentsMargins(18, 24, 18, 18);
+    timelineLayout->setSpacing(10);
+
+    auto *timelineIntro = new QLabel("同一个生活主题，会在这里按时间慢慢连成一条线。", timelineBox);
+    timelineIntro->setObjectName("sectionHint");
+    timelineIntro->setWordWrap(true);
+
+    m_timelineSummaryLabel = new QLabel("当你开始使用标签后，这里会出现一条属于你的情绪时间轴。", timelineBox);
+    m_timelineSummaryLabel->setObjectName("summaryLabel");
+    m_timelineSummaryLabel->setWordWrap(true);
+
+    m_timelineList = new QListWidget(timelineBox);
+    m_timelineList->setObjectName("timelineList");
+    m_timelineList->setMinimumHeight(196);
+    connect(m_timelineList, &QListWidget::currentItemChanged, this,
+            [this](QListWidgetItem *current, QListWidgetItem *) {
+                if (!current) {
+                    return;
+                }
+                const QString id = current->data(Qt::UserRole).toString();
+                if (!id.isEmpty()) {
+                    selectEntryById(id);
+                }
+            });
+
+    timelineLayout->addWidget(timelineIntro);
+    timelineLayout->addWidget(m_timelineSummaryLabel);
+    timelineLayout->addWidget(m_timelineList);
 
     auto *trendBox = new QGroupBox("这周和这个月的我", homePage);
     auto *trendLayout = new QVBoxLayout(trendBox);
@@ -442,6 +485,7 @@ void MainWindow::buildUi() {
     homeLayout->addLayout(statsRow);
     homeLayout->addWidget(calendarBox);
     homeLayout->addWidget(filterBox);
+    homeLayout->addWidget(timelineBox);
     homeLayout->addWidget(trendBox);
     homeLayout->addWidget(ritualBox);
     homeLayout->addWidget(companionBox);
@@ -692,25 +736,27 @@ void MainWindow::buildUi() {
 
     auto *detailBox = new QGroupBox("五行情绪卡", viewerCard);
     detailBox->setObjectName("detailBox");
-    detailBox->setMaximumHeight(250);
+    detailBox->setMaximumHeight(218);
     auto *detailLayout = new QVBoxLayout(detailBox);
     detailLayout->setContentsMargins(16, 18, 16, 16);
-    detailLayout->setSpacing(8);
+    detailLayout->setSpacing(10);
 
     m_detailIcon = new QLabel(detailBox);
     m_detailTitle = new QLabel("当前没有选中日记", detailBox);
     m_detailMeta = new QLabel("请从右侧星空中点亮一颗星，或从左侧档案里选择一条记录。", detailBox);
     m_detailMeta->setWordWrap(true);
-    m_detailNote = new QPlainTextEdit(detailBox);
-    m_detailNote->setReadOnly(true);
+    m_detailNote = new QLabel(detailBox);
+    m_detailNote->setWordWrap(true);
+    m_detailNote->setTextFormat(Qt::RichText);
+    m_detailNote->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_detailNote->setMinimumHeight(76);
-    m_detailNote->setMaximumHeight(92);
     m_detailIcon->setAlignment(Qt::AlignCenter);
     m_detailIcon->setFixedSize(46, 46);
 
     m_detailIcon->setObjectName("detailIcon");
     m_detailTitle->setObjectName("detailTitle");
     m_detailMeta->setObjectName("detailMeta");
+    m_detailNote->setObjectName("detailNoteBody");
 
     auto *detailHeader = new QHBoxLayout();
     detailHeader->setSpacing(12);
@@ -773,6 +819,15 @@ void MainWindow::buildUi() {
         }
         QLabel#detailTitle { font-size: 17px; font-weight: 700; color: white; }
         QLabel#detailMeta { font-size: 12px; color: #c8d5f0; line-height: 1.45; }
+        QLabel#detailNoteBody {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(73,92,128,0.58);
+            border-radius: 16px;
+            color: #eef4ff;
+            padding: 12px 14px;
+            font-size: 13px;
+            line-height: 1.55;
+        }
         QLabel#summaryLabel { color: #61738b; font-size: 13px; padding-left: 2px; }
         QLabel#companionTitle { font-size: 17px; font-weight: 700; color: #0f172a; }
         QLabel#companionBody { font-size: 13px; color: #5f6f86; line-height: 1.45; }
@@ -864,17 +919,16 @@ void MainWindow::buildUi() {
             color: #10213d;
             border-radius: 14px;
         }
+        QListWidget#timelineList::item {
+            padding: 13px 12px;
+            margin: 4px 0;
+            border-radius: 16px;
+        }
         QFrame#viewerCard, QGroupBox#detailBox {
             background: rgba(7,12,24,0.92);
             border: 1px solid rgba(43,60,92,0.92);
         }
         QGroupBox#detailBox::title { color: white; }
-        QGroupBox#detailBox QPlainTextEdit {
-            background: rgba(11,18,34,0.92);
-            border: 1px solid rgba(44,62,96,0.92);
-            color: #eff4ff;
-            font-size: 12px;
-        }
     )");
 
     showHomePage();
@@ -1154,6 +1208,65 @@ void MainWindow::refreshViews() {
                   .arg(m_activeTagFilter)
                   .arg(visibleEntries.size()));
 
+    const QString timelineTag = !m_activeTagFilter.isEmpty() ? m_activeTagFilter : topTag;
+    m_timelineList->clear();
+    if (timelineTag.isEmpty()) {
+        m_timelineSummaryLabel->setText("当你给记录加上生活标签后，这里会把同一主题慢慢连成一条时间轴。");
+        auto *placeholder = new QListWidgetItem("还没有可以展开的标签时间轴", m_timelineList);
+        placeholder->setFlags(Qt::NoItemFlags);
+        placeholder->setForeground(QColor("#8fa1ba"));
+    } else {
+        QList<EmotionEntry> timelineEntries;
+        QMap<QString, int> timelineEmotionCount;
+        int totalIntensity = 0;
+        int totalEnergy = 0;
+        for (const auto &entry : m_entries) {
+            if (entry.tags.contains(timelineTag)) {
+                timelineEntries.append(entry);
+                timelineEmotionCount[entry.emotion] += 1;
+                totalIntensity += entry.intensity;
+                totalEnergy += entry.energy;
+            }
+        }
+
+        QString dominantEmotion = "平静";
+        int dominantCount = 0;
+        for (auto it = timelineEmotionCount.constBegin(); it != timelineEmotionCount.constEnd(); ++it) {
+            if (it.value() > dominantCount) {
+                dominantEmotion = it.key();
+                dominantCount = it.value();
+            }
+        }
+
+        const double averageIntensity =
+            timelineEntries.isEmpty() ? 0.0 : double(totalIntensity) / double(timelineEntries.size());
+        const double averageEnergy =
+            timelineEntries.isEmpty() ? 0.0 : double(totalEnergy) / double(timelineEntries.size());
+        const QDate latestDate = timelineEntries.isEmpty() ? QDate() : timelineEntries.front().date;
+        const QDate earliestDate = timelineEntries.isEmpty() ? QDate() : timelineEntries.back().date;
+
+        m_timelineSummaryLabel->setText(
+            QString("当前时间轴：#%1 · 共 %2 次记录，从 %3 到 %4。它最常把你带向“%5”，平均强度 %6，平均能量 %7。")
+                .arg(timelineTag)
+                .arg(timelineEntries.size())
+                .arg(earliestDate.toString("MM-dd"))
+                .arg(latestDate.toString("MM-dd"))
+                .arg(dominantEmotion)
+                .arg(averageIntensity, 0, 'f', 1)
+                .arg(averageEnergy, 0, 'f', 1));
+
+        for (const auto &entry : timelineEntries) {
+            const QString lineOne =
+                QString("%1   ·   %2").arg(entry.date.toString("MM-dd")).arg(entry.emotion);
+            const QString lineTwo =
+                QString("%1\n%2").arg(entry.title).arg(compactPreviewText(entry.note, 46));
+            auto *item = new QListWidgetItem(lineOne + "\n" + lineTwo, m_timelineList);
+            item->setData(Qt::UserRole, entry.id);
+            item->setForeground(EmotionEntry::colorForEmotion(entry.emotion));
+            item->setToolTip(QString("#%1  ·  %2").arg(timelineTag).arg(entry.title));
+        }
+    }
+
     refreshCalendarReview();
     m_starMapView->setEntries(visibleEntries);
 
@@ -1181,15 +1294,45 @@ void MainWindow::refreshViews() {
 
 void MainWindow::selectEntryById(const QString &id) {
     m_selectedEntryId = id;
+    int entryRow = -1;
     for (int row = 0; row < m_entryList->count(); ++row) {
-        auto *item = m_entryList->item(row);
-        if (item->data(Qt::UserRole).toString() == id) {
-            m_entryList->setCurrentRow(row);
-            m_starMapView->setSelectedEntryId(id);
-            return;
+        if (m_entryList->item(row)->data(Qt::UserRole).toString() == id) {
+            entryRow = row;
+            break;
         }
     }
+
+    int timelineRow = -1;
+    for (int row = 0; row < m_timelineList->count(); ++row) {
+        if (m_timelineList->item(row)->data(Qt::UserRole).toString() == id) {
+            timelineRow = row;
+            break;
+        }
+    }
+
+    {
+        const QSignalBlocker blocker(m_entryList);
+        if (entryRow >= 0) {
+            m_entryList->setCurrentRow(entryRow);
+        } else {
+            m_entryList->clearSelection();
+        }
+    }
+    {
+        const QSignalBlocker blocker(m_timelineList);
+        if (timelineRow >= 0) {
+            m_timelineList->setCurrentRow(timelineRow);
+        } else {
+            m_timelineList->clearSelection();
+        }
+    }
+
     m_starMapView->setSelectedEntryId(id);
+    if (const auto *entry = findEntryById(id)) {
+        showEntryDetails(entry);
+    } else {
+        showEntryDetails(nullptr);
+    }
 }
 
 void MainWindow::showEntryDetails(const EmotionEntry *entry) {
@@ -1197,12 +1340,13 @@ void MainWindow::showEntryDetails(const EmotionEntry *entry) {
         m_detailIcon->setText("五");
         m_detailTitle->setText("当前没有选中日记");
         m_detailMeta->setText("请从右侧星空中点亮一颗星，或从左侧档案里选择一条记录。");
-        m_detailNote->setPlainText("");
+        m_detailNote->setText("当你点亮一颗星后，这里会出现一句更轻一点的摘要，以及这份情绪的强度和能量走势。");
         return;
     }
 
     const QString element = elementNameForEmotion(entry->emotion);
     const QString reading = trendReadingForEntry(*entry);
+    const QString notePreview = compactPreviewText(entry->note).toHtmlEscaped();
 
     m_detailIcon->setText(element);
     m_detailTitle->setText(entry->title);
@@ -1212,9 +1356,14 @@ void MainWindow::showEntryDetails(const EmotionEntry *entry) {
             .arg(element)
             .arg(tagBubbleText(entry->tags))
             .arg(reading));
-    m_detailNote->setPlainText(
-        QString("记录原文\n%1\n\n强度 %2 / 5    能量 %3 / 5")
-            .arg(entry->note)
+    m_detailNote->setText(
+        QString("<div style='color:#90a5c9;font-size:12px;'>记录片段</div>"
+                "<div style='margin-top:6px;color:#f7fbff;'>%1</div>"
+                "<div style='margin-top:10px;color:#c7d5ef;font-size:12px;'>"
+                "<span style='padding-right:16px;'>强度 %2 / 5</span>"
+                "<span>能量 %3 / 5</span>"
+                "</div>")
+            .arg(notePreview)
             .arg(entry->intensity)
             .arg(entry->energy));
 }
