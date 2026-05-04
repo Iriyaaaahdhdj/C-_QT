@@ -39,12 +39,12 @@ struct EmotionEntry {
 
     static QString iconForEmotion(const QString &emotion) {
         const auto value = normalizedEmotion(emotion);
-        if (value == "快乐") return "晴";
-        if (value == "平静") return "月";
-        if (value == "难过") return "雨";
-        if (value == "愤怒") return "焰";
-        if (value == "焦虑") return "雾";
-        return "芽";
+        if (value == "快乐") return "火";
+        if (value == "平静") return "水";
+        if (value == "难过") return "金";
+        if (value == "愤怒") return "木";
+        if (value == "焦虑") return "土";
+        return "木";
     }
 
     QJsonObject toJson() const {

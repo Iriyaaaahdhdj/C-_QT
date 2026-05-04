@@ -101,6 +101,48 @@ QString tagBubbleText(const QStringList &tags) {
     }
     return decorated.join("  ");
 }
+
+QString elementNameForEmotion(const QString &emotion) {
+    const QString value = EmotionEntry::normalizedEmotion(emotion);
+    if (value == "快乐") return "火";
+    if (value == "平静") return "水";
+    if (value == "难过") return "金";
+    if (value == "愤怒") return "木";
+    if (value == "焦虑") return "土";
+    return "木";
+}
+
+QString trendReadingForEntry(const EmotionEntry &entry) {
+    const QString element = elementNameForEmotion(entry.emotion);
+    const bool highIntensity = entry.intensity >= 4;
+    const bool lowEnergy = entry.energy <= 2;
+    const bool highEnergy = entry.energy >= 4;
+
+    if (element == "火") {
+        if (highIntensity && highEnergy) return "火行偏旺，情绪在持续外放，适合把高光和推动力留下来。";
+        if (lowEnergy) return "火行转柔，开心里带着一点疲惫，更适合慢慢回味。";
+        return "火行温亮，说明这份快乐正在稳定地照亮你。";
+    }
+    if (element == "水") {
+        if (highEnergy) return "水行流动，表面平静但内在仍有推进感，适合继续整理想法。";
+        return "水行安定，这段时间更像是在慢慢沉淀自己。";
+    }
+    if (element == "金") {
+        if (highIntensity) return "金行偏重，情绪有收缩感，先允许难过存在，比急着化解更重要。";
+        return "金行微凉，这份难过正在被你慢慢看清。";
+    }
+    if (element == "木") {
+        if (highIntensity) return "木行上冲，边界感很明确，适合把触发点和真正需求写下来。";
+        return "木行生发，这份情绪正在提醒你，有些东西值得被认真守护。";
+    }
+    if (highIntensity && lowEnergy) {
+        return "土行偏滞，焦虑感在堆积，先拆出最小的一步会更轻。";
+    }
+    if (highEnergy) {
+        return "土行仍有承载力，虽然在意很多，但你还保有继续往前的力量。";
+    }
+    return "土行轻压，这份不安正在寻找落点，写出来会让它变得更可被整理。";
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -648,11 +690,12 @@ void MainWindow::buildUi() {
     m_starMapView->setMinimumHeight(560);
     connect(m_starMapView, &StarMapView::entrySelected, this, &MainWindow::handleStarSelection);
 
-    auto *detailBox = new QGroupBox("当前选中", viewerCard);
+    auto *detailBox = new QGroupBox("五行情绪卡", viewerCard);
     detailBox->setObjectName("detailBox");
+    detailBox->setMaximumHeight(250);
     auto *detailLayout = new QVBoxLayout(detailBox);
-    detailLayout->setContentsMargins(18, 24, 18, 18);
-    detailLayout->setSpacing(10);
+    detailLayout->setContentsMargins(16, 18, 16, 16);
+    detailLayout->setSpacing(8);
 
     m_detailIcon = new QLabel(detailBox);
     m_detailTitle = new QLabel("当前没有选中日记", detailBox);
@@ -660,15 +703,25 @@ void MainWindow::buildUi() {
     m_detailMeta->setWordWrap(true);
     m_detailNote = new QPlainTextEdit(detailBox);
     m_detailNote->setReadOnly(true);
-    m_detailNote->setMinimumHeight(140);
+    m_detailNote->setMinimumHeight(76);
+    m_detailNote->setMaximumHeight(92);
+    m_detailIcon->setAlignment(Qt::AlignCenter);
+    m_detailIcon->setFixedSize(46, 46);
 
     m_detailIcon->setObjectName("detailIcon");
     m_detailTitle->setObjectName("detailTitle");
     m_detailMeta->setObjectName("detailMeta");
 
-    detailLayout->addWidget(m_detailIcon);
-    detailLayout->addWidget(m_detailTitle);
-    detailLayout->addWidget(m_detailMeta);
+    auto *detailHeader = new QHBoxLayout();
+    detailHeader->setSpacing(12);
+    auto *detailTitleWrap = new QVBoxLayout();
+    detailTitleWrap->setSpacing(3);
+    detailTitleWrap->addWidget(m_detailTitle);
+    detailTitleWrap->addWidget(m_detailMeta);
+    detailHeader->addWidget(m_detailIcon, 0, Qt::AlignTop);
+    detailHeader->addLayout(detailTitleWrap, 1);
+
+    detailLayout->addLayout(detailHeader);
     detailLayout->addWidget(m_detailNote);
 
     viewerLayout->addLayout(viewerHeader);
@@ -710,9 +763,16 @@ void MainWindow::buildUi() {
         QLabel#statText { font-size: 12px; color: #6a7a92; }
         QLabel#viewerTitle { font-size: 24px; font-weight: 700; color: white; }
         QLabel#viewerSubtitle { font-size: 13px; color: #a9b8d3; }
-        QLabel#detailIcon { font-size: 26px; font-weight: 700; color: #ffd166; }
-        QLabel#detailTitle { font-size: 20px; font-weight: 700; color: white; }
-        QLabel#detailMeta { font-size: 13px; color: #c8d5f0; }
+        QLabel#detailIcon {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ffe4a3;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 23px;
+        }
+        QLabel#detailTitle { font-size: 17px; font-weight: 700; color: white; }
+        QLabel#detailMeta { font-size: 12px; color: #c8d5f0; line-height: 1.45; }
         QLabel#summaryLabel { color: #61738b; font-size: 13px; padding-left: 2px; }
         QLabel#companionTitle { font-size: 17px; font-weight: 700; color: #0f172a; }
         QLabel#companionBody { font-size: 13px; color: #5f6f86; line-height: 1.45; }
@@ -813,6 +873,7 @@ void MainWindow::buildUi() {
             background: rgba(11,18,34,0.92);
             border: 1px solid rgba(44,62,96,0.92);
             color: #eff4ff;
+            font-size: 12px;
         }
     )");
 
@@ -1133,22 +1194,29 @@ void MainWindow::selectEntryById(const QString &id) {
 
 void MainWindow::showEntryDetails(const EmotionEntry *entry) {
     if (!entry) {
-        m_detailIcon->setText("...");
+        m_detailIcon->setText("五");
         m_detailTitle->setText("当前没有选中日记");
         m_detailMeta->setText("请从右侧星空中点亮一颗星，或从左侧档案里选择一条记录。");
         m_detailNote->setPlainText("");
         return;
     }
 
-    m_detailIcon->setText(EmotionEntry::iconForEmotion(entry->emotion));
+    const QString element = elementNameForEmotion(entry->emotion);
+    const QString reading = trendReadingForEntry(*entry);
+
+    m_detailIcon->setText(element);
     m_detailTitle->setText(entry->title);
     m_detailMeta->setText(
-        QString("%1  |  %2  |  强度 %3  |  能量 %4\n标签：%5")
+        QString("%1  |  %2  |  五行：%3\n标签：%4\n走势：%5")
             .arg(entry->date.toString("yyyy-MM-dd"), entry->emotion)
+            .arg(element)
+            .arg(tagBubbleText(entry->tags))
+            .arg(reading));
+    m_detailNote->setPlainText(
+        QString("记录原文\n%1\n\n强度 %2 / 5    能量 %3 / 5")
+            .arg(entry->note)
             .arg(entry->intensity)
-            .arg(entry->energy)
-            .arg(tagBubbleText(entry->tags)));
-    m_detailNote->setPlainText(entry->note);
+            .arg(entry->energy));
 }
 
 void MainWindow::populateEditor(const EmotionEntry &entry) {
