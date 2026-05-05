@@ -28,6 +28,7 @@
 #include <QVBoxLayout>
 #include <QUuid>
 
+#include "breathingskydialog.h"
 #include "starmapview.h"
 
 namespace {
@@ -265,44 +266,6 @@ void MainWindow::buildUi() {
     calendarLayout->addLayout(calendarGrid);
     calendarLayout->addWidget(m_tagTrendLabel);
 
-    auto *filterBox = new QGroupBox("主题筛选", homePage);
-    auto *filterLayout = new QVBoxLayout(filterBox);
-    filterLayout->setContentsMargins(18, 24, 18, 18);
-    filterLayout->setSpacing(10);
-
-    auto *filterIntro = new QLabel("按主题查看你的情绪星空。", filterBox);
-    filterIntro->setObjectName("sectionHint");
-    filterIntro->setWordWrap(true);
-
-    auto *filterFieldCard = new QFrame(filterBox);
-    filterFieldCard->setObjectName("filterFieldCard");
-    auto *filterFieldLayout = new QVBoxLayout(filterFieldCard);
-    filterFieldLayout->setContentsMargins(14, 12, 14, 12);
-    filterFieldLayout->setSpacing(8);
-
-    auto *filterCaption = new QLabel("当前主题", filterFieldCard);
-    filterCaption->setObjectName("filterCaption");
-
-    m_tagFilterCombo = new QComboBox(filterFieldCard);
-    m_tagFilterCombo->setObjectName("filterCombo");
-    m_tagFilterCombo->setCursor(Qt::PointingHandCursor);
-    m_tagFilterCombo->setMaxVisibleItems(6);
-    m_tagFilterCombo->addItem("全部情绪星", "");
-    connect(m_tagFilterCombo, &QComboBox::currentIndexChanged, this, [this](int) {
-        m_activeTagFilter = m_tagFilterCombo->currentData().toString();
-        refreshViews();
-    });
-
-    m_filterHintLabel = new QLabel("当前正在看全部情绪星。", filterBox);
-    m_filterHintLabel->setObjectName("summaryLabel");
-    m_filterHintLabel->setWordWrap(true);
-
-    filterLayout->addWidget(filterIntro);
-    filterFieldLayout->addWidget(filterCaption);
-    filterFieldLayout->addWidget(m_tagFilterCombo);
-    filterLayout->addWidget(filterFieldCard);
-    filterLayout->addWidget(m_filterHintLabel);
-
     auto *timelineBox = new QGroupBox("标签时间轴", homePage);
     auto *timelineLayout = new QVBoxLayout(timelineBox);
     timelineLayout->setContentsMargins(18, 24, 18, 18);
@@ -500,7 +463,6 @@ void MainWindow::buildUi() {
     homeLayout->addWidget(ritualBox);
     homeLayout->addWidget(calendarBox);
     homeLayout->addWidget(trendBox);
-    homeLayout->addWidget(filterBox);
     homeLayout->addWidget(timelineBox);
     homeLayout->addWidget(listBox, 1);
     homeLayout->addStretch();
@@ -736,7 +698,7 @@ void MainWindow::buildUi() {
     viewerTitleWrap->setSpacing(2);
     auto *viewerTitle = new QLabel("你的情绪星空", viewerCard);
     viewerTitle->setObjectName("viewerTitle");
-    auto *viewerSubtitle = new QLabel("拖动球面星空来观察不同角度。每条记录会按日期排布，并结合情绪内容映射到对应的星象方位。", viewerCard);
+    auto *viewerSubtitle = new QLabel("拖动球面星空来观察不同角度。点亮一颗情绪星后，可以进入呼吸观星。", viewerCard);
     viewerSubtitle->setObjectName("viewerSubtitle");
     viewerSubtitle->setWordWrap(true);
     viewerTitleWrap->addWidget(viewerTitle);
@@ -780,8 +742,17 @@ void MainWindow::buildUi() {
     detailHeader->addWidget(m_detailIcon, 0, Qt::AlignTop);
     detailHeader->addLayout(detailTitleWrap, 1);
 
+    auto *detailActionRow = new QHBoxLayout();
+    detailActionRow->addStretch();
+    m_breatheButton = new QPushButton("呼吸观星", detailBox);
+    m_breatheButton->setObjectName("secondaryAction");
+    m_breatheButton->setEnabled(false);
+    connect(m_breatheButton, &QPushButton::clicked, this, &MainWindow::openBreathingSky);
+    detailActionRow->addWidget(m_breatheButton);
+
     detailLayout->addLayout(detailHeader);
     detailLayout->addWidget(m_detailNote);
+    detailLayout->addLayout(detailActionRow);
 
     viewerLayout->addLayout(viewerHeader);
     viewerLayout->addWidget(m_starMapView, 1);
@@ -1234,52 +1205,12 @@ void MainWindow::refreshViews() {
                   .arg(monthlyBrightestDay)
                   .arg(topTag));
 
-    {
-        const QSignalBlocker blocker(m_tagFilterCombo);
-        const QString previousFilter = m_activeTagFilter;
-        m_tagFilterCombo->clear();
-        m_tagFilterCombo->addItem("全部情绪星", "");
-
-        QList<QPair<QString, int>> filterTagPairs;
-        for (auto it = tagFrequency.constBegin(); it != tagFrequency.constEnd(); ++it) {
-            filterTagPairs.append({it.key(), it.value()});
-        }
-        std::sort(filterTagPairs.begin(), filterTagPairs.end(), [](const auto &a, const auto &b) {
-            if (a.second == b.second) {
-                return a.first < b.first;
-            }
-            return a.second > b.second;
-        });
-        for (const auto &pair : filterTagPairs) {
-            m_tagFilterCombo->addItem(QString("#%1  ·  %2 条记录").arg(pair.first).arg(pair.second), pair.first);
-        }
-
-        int restoreIndex = m_tagFilterCombo->findData(previousFilter);
-        if (restoreIndex < 0) {
-            restoreIndex = 0;
-        }
-        m_tagFilterCombo->setCurrentIndex(restoreIndex);
-    }
-    m_activeTagFilter = m_tagFilterCombo->currentData().toString();
-
-    QList<EmotionEntry> visibleEntries = m_entries;
-    if (!m_activeTagFilter.isEmpty()) {
-        visibleEntries.clear();
-        for (const auto &entry : m_entries) {
-            if (entry.tags.contains(m_activeTagFilter)) {
-                visibleEntries.append(entry);
-            }
-        }
+    if (!m_entries.isEmpty() && (m_selectedEntryId.isEmpty() || !findEntryById(m_selectedEntryId))) {
+        m_selectedEntryId = m_entries.front().id;
     }
 
-    m_filterHintLabel->setText(
-        m_activeTagFilter.isEmpty()
-            ? "当前：全部情绪星"
-            : QString("当前：#%1 · %2 颗星")
-                  .arg(m_activeTagFilter)
-                  .arg(visibleEntries.size()));
+    const QString timelineTag = topTag;
 
-    const QString timelineTag = !m_activeTagFilter.isEmpty() ? m_activeTagFilter : topTag;
     m_timelineList->clear();
     if (timelineTag.isEmpty()) {
         m_timelineSummaryLabel->setText("给记录加上标签后，这里会出现一条主题时间轴。");
@@ -1339,22 +1270,8 @@ void MainWindow::refreshViews() {
     }
 
     refreshCalendarReview();
-    m_starMapView->setEntries(visibleEntries);
-
-    if (!m_entries.isEmpty() && (m_selectedEntryId.isEmpty() || !findEntryById(m_selectedEntryId))) {
-        m_selectedEntryId = m_entries.front().id;
-    }
-
-    bool selectedVisible = m_activeTagFilter.isEmpty();
-    if (!selectedVisible) {
-        for (const auto &entry : visibleEntries) {
-            if (entry.id == m_selectedEntryId) {
-                selectedVisible = true;
-                break;
-            }
-        }
-    }
-    m_starMapView->setSelectedEntryId(selectedVisible ? m_selectedEntryId : QString());
+    m_starMapView->setEntries(m_entries);
+    m_starMapView->setSelectedEntryId(m_selectedEntryId);
 
     if (!m_selectedEntryId.isEmpty()) {
         selectEntryById(m_selectedEntryId);
@@ -1412,6 +1329,7 @@ void MainWindow::showEntryDetails(const EmotionEntry *entry) {
         m_detailTitle->setText("当前没有选中日记");
         m_detailMeta->setText("请从右侧星空中点亮一颗星，或从左侧档案里选择一条记录。");
         m_detailNote->setText("当你点亮一颗星后，这里会出现一句更轻一点的摘要，以及这份情绪的强度和能量走势。");
+        m_breatheButton->setEnabled(false);
         return;
     }
 
@@ -1437,6 +1355,17 @@ void MainWindow::showEntryDetails(const EmotionEntry *entry) {
             .arg(notePreview)
             .arg(entry->intensity)
             .arg(entry->energy));
+    m_breatheButton->setEnabled(true);
+}
+
+void MainWindow::openBreathingSky() {
+    const auto *entry = findEntryById(m_selectedEntryId);
+    if (!entry) {
+        return;
+    }
+
+    BreathingSkyDialog dialog(*entry, this);
+    dialog.exec();
 }
 
 void MainWindow::populateEditor(const EmotionEntry &entry) {

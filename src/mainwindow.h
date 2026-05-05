@@ -36,6 +36,7 @@ private slots:
     void viewRandomEntry();
     void handleListSelectionChanged();
     void handleStarSelection(const QString &id);
+    void openBreathingSky();
 
 private:
     void buildUi();
@@ -69,7 +70,6 @@ private:
 
     QLineEdit *m_titleEdit = nullptr;
     QComboBox *m_emotionCombo = nullptr;
-    QComboBox *m_tagFilterCombo = nullptr;
     QDateEdit *m_dateEdit = nullptr;
     QSlider *m_intensitySlider = nullptr;
     QSlider *m_energySlider = nullptr;
@@ -91,7 +91,6 @@ private:
     QLabel *m_calendarMonthLabel = nullptr;
     QLabel *m_calendarSummaryLabel = nullptr;
     QLabel *m_tagTrendLabel = nullptr;
-    QLabel *m_filterHintLabel = nullptr;
     QLabel *m_weekTrendLabel = nullptr;
     QLabel *m_monthTrendLabel = nullptr;
     QLabel *m_timelineSummaryLabel = nullptr;
@@ -111,5 +110,5 @@ private:
     QPushButton *m_viewLatestButton = nullptr;
     QPushButton *m_viewTodayButton = nullptr;
     QPushButton *m_viewRandomButton = nullptr;
-    QString m_activeTagFilter;
+    QPushButton *m_breatheButton = nullptr;
 };

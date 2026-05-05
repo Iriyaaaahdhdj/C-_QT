@@ -24,6 +24,8 @@ qt_add_executable(EmotionStarJournal
     src/journalrepository.cpp
     src/starmapview.h
     src/starmapview.cpp
+    src/breathingskydialog.h
+    src/breathingskydialog.cpp
     src/mainwindow.h
     src/mainwindow.cpp
 )
