@@ -61,8 +61,8 @@ QFrame *createStatCard(const QString &value, const QString &label, QWidget *pare
 QPushButton *createPromptButton(const QString &title, const QString &subtitle, QWidget *parent) {
     auto *button = new QPushButton(parent);
     button->setObjectName("promptAction");
-    button->setText(title + "\n" + subtitle);
-    button->setMinimumHeight(72);
+    button->setText(subtitle.isEmpty() ? title : title + "\n" + subtitle);
+    button->setMinimumHeight(subtitle.isEmpty() ? 58 : 70);
     return button;
 }
 
@@ -205,10 +205,10 @@ void MainWindow::buildUi() {
     badge->setAlignment(Qt::AlignCenter);
     badge->setFixedWidth(124);
 
-    m_homeHeadlineLabel = new QLabel("今天的你，值得被温柔接住。", heroCard);
+    m_homeHeadlineLabel = new QLabel("给今天留下一颗星。", heroCard);
     m_homeHeadlineLabel->setObjectName("heroTitle");
 
-    m_homeSubheadlineLabel = new QLabel("这里不是一张冷冰冰的表单，而是你和今天重新对话的入口。", heroCard);
+    m_homeSubheadlineLabel = new QLabel("记录、回看、安放情绪，都从这里开始。", heroCard);
     m_homeSubheadlineLabel->setObjectName("heroSubtitle");
     m_homeSubheadlineLabel->setWordWrap(true);
 
@@ -222,14 +222,14 @@ void MainWindow::buildUi() {
     statsRow->addWidget(createStatCard("0", "我的连续记录", homePage, &m_statStreakValue, &m_statStreakLabel));
     statsRow->addWidget(createStatCard("--", "我的最后更新", homePage, &m_statUpdateValue, &m_statUpdateLabel));
 
-    auto *calendarBox = new QGroupBox("我的本月回看", homePage);
+    auto *calendarBox = new QGroupBox("本月回看", homePage);
     auto *calendarLayout = new QVBoxLayout(calendarBox);
     calendarLayout->setContentsMargins(18, 24, 18, 18);
     calendarLayout->setSpacing(12);
 
     m_calendarMonthLabel = new QLabel("2026年05月", calendarBox);
     m_calendarMonthLabel->setObjectName("companionTitle");
-    m_calendarSummaryLabel = new QLabel("这个月的情绪还在慢慢长出来。", calendarBox);
+    m_calendarSummaryLabel = new QLabel("本月情绪概览。", calendarBox);
     m_calendarSummaryLabel->setObjectName("sectionHint");
     m_calendarSummaryLabel->setWordWrap(true);
 
@@ -265,16 +265,28 @@ void MainWindow::buildUi() {
     calendarLayout->addLayout(calendarGrid);
     calendarLayout->addWidget(m_tagTrendLabel);
 
-    auto *filterBox = new QGroupBox("我的标签视角", homePage);
+    auto *filterBox = new QGroupBox("主题筛选", homePage);
     auto *filterLayout = new QVBoxLayout(filterBox);
     filterLayout->setContentsMargins(18, 24, 18, 18);
     filterLayout->setSpacing(10);
 
-    auto *filterIntro = new QLabel("按生活主题切换星空，只看某一种来源的情绪轨迹。", filterBox);
+    auto *filterIntro = new QLabel("按主题查看你的情绪星空。", filterBox);
     filterIntro->setObjectName("sectionHint");
     filterIntro->setWordWrap(true);
 
-    m_tagFilterCombo = new QComboBox(filterBox);
+    auto *filterFieldCard = new QFrame(filterBox);
+    filterFieldCard->setObjectName("filterFieldCard");
+    auto *filterFieldLayout = new QVBoxLayout(filterFieldCard);
+    filterFieldLayout->setContentsMargins(14, 12, 14, 12);
+    filterFieldLayout->setSpacing(8);
+
+    auto *filterCaption = new QLabel("当前主题", filterFieldCard);
+    filterCaption->setObjectName("filterCaption");
+
+    m_tagFilterCombo = new QComboBox(filterFieldCard);
+    m_tagFilterCombo->setObjectName("filterCombo");
+    m_tagFilterCombo->setCursor(Qt::PointingHandCursor);
+    m_tagFilterCombo->setMaxVisibleItems(6);
     m_tagFilterCombo->addItem("全部情绪星", "");
     connect(m_tagFilterCombo, &QComboBox::currentIndexChanged, this, [this](int) {
         m_activeTagFilter = m_tagFilterCombo->currentData().toString();
@@ -286,15 +298,17 @@ void MainWindow::buildUi() {
     m_filterHintLabel->setWordWrap(true);
 
     filterLayout->addWidget(filterIntro);
-    filterLayout->addWidget(m_tagFilterCombo);
+    filterFieldLayout->addWidget(filterCaption);
+    filterFieldLayout->addWidget(m_tagFilterCombo);
+    filterLayout->addWidget(filterFieldCard);
     filterLayout->addWidget(m_filterHintLabel);
 
-    auto *timelineBox = new QGroupBox("我的标签时间轴", homePage);
+    auto *timelineBox = new QGroupBox("标签时间轴", homePage);
     auto *timelineLayout = new QVBoxLayout(timelineBox);
     timelineLayout->setContentsMargins(18, 24, 18, 18);
     timelineLayout->setSpacing(10);
 
-    auto *timelineIntro = new QLabel("同一个生活主题，会在这里按时间慢慢连成一条线。", timelineBox);
+    auto *timelineIntro = new QLabel("同一标签的记录，会按时间连成线。", timelineBox);
     timelineIntro->setObjectName("sectionHint");
     timelineIntro->setWordWrap(true);
 
@@ -320,12 +334,12 @@ void MainWindow::buildUi() {
     timelineLayout->addWidget(m_timelineSummaryLabel);
     timelineLayout->addWidget(m_timelineList);
 
-    auto *trendBox = new QGroupBox("这周和这个月的我", homePage);
+    auto *trendBox = new QGroupBox("近期走势", homePage);
     auto *trendLayout = new QVBoxLayout(trendBox);
     trendLayout->setContentsMargins(18, 24, 18, 18);
     trendLayout->setSpacing(10);
 
-    auto *trendIntro = new QLabel("不只是记录，还要慢慢读懂自己。这里会把最近的变化翻译成更直观的话。", trendBox);
+    auto *trendIntro = new QLabel("最近 7 天和本月的概览。", trendBox);
     trendIntro->setObjectName("sectionHint");
     trendIntro->setWordWrap(true);
 
@@ -341,16 +355,16 @@ void MainWindow::buildUi() {
     trendLayout->addWidget(m_weekTrendLabel);
     trendLayout->addWidget(m_monthTrendLabel);
 
-    auto *ritualBox = new QGroupBox("我的今天", homePage);
+    auto *ritualBox = new QGroupBox("记录与查看", homePage);
     auto *ritualLayout = new QVBoxLayout(ritualBox);
     ritualLayout->setContentsMargins(18, 24, 18, 18);
     ritualLayout->setSpacing(12);
 
-    auto *ritualHint = new QLabel("像 Moo 日记那样轻一点地开始，不需要想很完整，先按下一个入口就好。", ritualBox);
+    auto *ritualHint = new QLabel("从一个入口开始就好。", ritualBox);
     ritualHint->setObjectName("sectionHint");
     ritualHint->setWordWrap(true);
 
-    m_openEditorButton = new QPushButton("记录我的今天", ritualBox);
+    m_openEditorButton = new QPushButton("记录今天", ritualBox);
     m_openEditorButton->setObjectName("primaryAction");
     connect(m_openEditorButton, &QPushButton::clicked, this, &MainWindow::openNewEntryPage);
 
@@ -358,10 +372,10 @@ void MainWindow::buildUi() {
     ritualGrid->setHorizontalSpacing(10);
     ritualGrid->setVerticalSpacing(10);
 
-    m_viewTodayButton = createPromptButton("回到我的今天", "定位今天留下的情绪", ritualBox);
-    m_viewLatestButton = createPromptButton("看看最新记录", "回到最近一次表达", ritualBox);
-    m_viewRandomButton = createPromptButton("随机漫游一下", "看看过去某颗星", ritualBox);
-    auto *releaseButton = createPromptButton("先放下这件事", "带着提示进入记录页", ritualBox);
+    m_viewTodayButton = createPromptButton("回到今天", "", ritualBox);
+    m_viewLatestButton = createPromptButton("最新记录", "", ritualBox);
+    m_viewRandomButton = createPromptButton("随机漫游", "", ritualBox);
+    auto *releaseButton = createPromptButton("先放一下", "", ritualBox);
 
     m_viewTodayButton->setObjectName("softCardButton");
     m_viewLatestButton->setObjectName("softCardButton");
@@ -387,12 +401,12 @@ void MainWindow::buildUi() {
     ritualLayout->addWidget(m_openEditorButton);
     ritualLayout->addLayout(ritualGrid);
 
-    auto *companionBox = new QGroupBox("我的情绪安放", homePage);
+    auto *companionBox = new QGroupBox("安抚一下", homePage);
     auto *companionLayout = new QVBoxLayout(companionBox);
     companionLayout->setContentsMargins(18, 24, 18, 18);
     companionLayout->setSpacing(12);
 
-    auto *companionHint = new QLabel("参考解忧娃娃那种被陪伴的感觉，我把这里做成更像“先接住自己”的地方。", companionBox);
+    auto *companionHint = new QLabel("需要的时候，先让自己慢下来。", companionBox);
     companionHint->setObjectName("sectionHint");
     companionHint->setWordWrap(true);
 
@@ -404,7 +418,7 @@ void MainWindow::buildUi() {
 
     m_companionTitleLabel = new QLabel("先听听此刻的自己。", companionCard);
     m_companionTitleLabel->setObjectName("companionTitle");
-    m_companionBodyLabel = new QLabel("如果你还不知道怎么写，就先从今天最在意的一件小事开始。", companionCard);
+    m_companionBodyLabel = new QLabel("不知道怎么开始时，就先写一件最在意的小事。", companionCard);
     m_companionBodyLabel->setObjectName("companionBody");
     m_companionBodyLabel->setWordWrap(true);
     companionCardLayout->addWidget(m_companionTitleLabel);
@@ -413,7 +427,7 @@ void MainWindow::buildUi() {
     auto *companionActions = new QHBoxLayout();
     companionActions->setSpacing(10);
 
-    auto *talkButton = new QPushButton("先把这件事说出来", companionBox);
+    auto *talkButton = new QPushButton("说出来", companionBox);
     talkButton->setObjectName("secondaryAction");
     connect(talkButton, &QPushButton::clicked, this, [this]() {
         applyEditorPrompt("今天最想说的一件事",
@@ -421,7 +435,7 @@ void MainWindow::buildUi() {
                           "平静");
     });
 
-    auto *keepMomentButton = new QPushButton("留住一个小瞬间", companionBox);
+    auto *keepMomentButton = new QPushButton("留住瞬间", companionBox);
     keepMomentButton->setObjectName("secondaryAction");
     connect(keepMomentButton, &QPushButton::clicked, this, [this]() {
         applyEditorPrompt("我想留下的一个瞬间",
@@ -429,7 +443,7 @@ void MainWindow::buildUi() {
                           "希望");
     });
 
-    auto *comfortButton = new QPushButton("给自己一句安慰", companionBox);
+    auto *comfortButton = new QPushButton("安慰自己", companionBox);
     comfortButton->setObjectName("ghostAction");
     connect(comfortButton, &QPushButton::clicked, this, [this]() {
         const EmotionEntry *latest = m_entries.isEmpty() ? nullptr : &m_entries.front();
@@ -445,12 +459,12 @@ void MainWindow::buildUi() {
     companionLayout->addLayout(companionActions);
     companionLayout->addWidget(comfortButton);
 
-    auto *listBox = new QGroupBox("我的星空档案", homePage);
+    auto *listBox = new QGroupBox("星空档案", homePage);
     auto *listLayout = new QVBoxLayout(listBox);
     listLayout->setContentsMargins(18, 24, 18, 18);
     listLayout->setSpacing(12);
 
-    auto *archiveHint = new QLabel("这里会保存我写下的每一次情绪记录。点开任意一条，右侧星空会同步定位到它。", listBox);
+    auto *archiveHint = new QLabel("点开一条记录，右侧星空会同步定位。", listBox);
     archiveHint->setObjectName("sectionHint");
     archiveHint->setWordWrap(true);
 
@@ -466,7 +480,7 @@ void MainWindow::buildUi() {
     auto *archiveActionRow = new QHBoxLayout();
     archiveActionRow->setSpacing(10);
 
-    m_editButton = new QPushButton("编辑这条记录", listBox);
+    m_editButton = new QPushButton("编辑", listBox);
     m_editButton->setObjectName("secondaryAction");
     m_deleteButton = new QPushButton("删除", listBox);
     m_deleteButton->setObjectName("dangerButton");
@@ -483,12 +497,11 @@ void MainWindow::buildUi() {
 
     homeLayout->addWidget(heroCard);
     homeLayout->addLayout(statsRow);
+    homeLayout->addWidget(ritualBox);
     homeLayout->addWidget(calendarBox);
+    homeLayout->addWidget(trendBox);
     homeLayout->addWidget(filterBox);
     homeLayout->addWidget(timelineBox);
-    homeLayout->addWidget(trendBox);
-    homeLayout->addWidget(ritualBox);
-    homeLayout->addWidget(companionBox);
     homeLayout->addWidget(listBox, 1);
     homeLayout->addStretch();
 
@@ -802,8 +815,8 @@ void MainWindow::buildUi() {
             font-size: 12px;
             font-weight: 700;
         }
-        QLabel#heroTitle { font-size: 29px; font-weight: 700; color: #0f172a; }
-        QLabel#heroSubtitle { font-size: 14px; color: #61738b; line-height: 1.5; }
+        QLabel#heroTitle { font-size: 27px; font-weight: 700; color: #0f172a; }
+        QLabel#heroSubtitle { font-size: 13px; color: #61738b; line-height: 1.45; }
         QLabel#sectionHint { font-size: 12px; color: #7a879b; padding-left: 2px; }
         QLabel#statNumber { font-size: 22px; font-weight: 700; color: #10233f; }
         QLabel#statText { font-size: 12px; color: #6a7a92; }
@@ -828,7 +841,14 @@ void MainWindow::buildUi() {
             font-size: 13px;
             line-height: 1.55;
         }
-        QLabel#summaryLabel { color: #61738b; font-size: 13px; padding-left: 2px; }
+        QLabel#summaryLabel { color: #61738b; font-size: 12px; padding-left: 2px; line-height: 1.45; }
+        QLabel#filterCaption {
+            font-size: 11px;
+            color: #8a97ab;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding-left: 4px;
+        }
         QLabel#companionTitle { font-size: 17px; font-weight: 700; color: #0f172a; }
         QLabel#companionBody { font-size: 13px; color: #5f6f86; line-height: 1.45; }
         QLabel#weekLabel { font-size: 12px; color: #8a97ab; }
@@ -843,6 +863,11 @@ void MainWindow::buildUi() {
         QFrame#companionCard {
             background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 rgba(242,247,255,0.98), stop:1 rgba(233,240,252,0.98));
             border: 1px solid rgba(220,229,243,0.95);
+            border-radius: 22px;
+        }
+        QFrame#filterFieldCard {
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 rgba(247,250,255,0.98), stop:1 rgba(239,244,252,0.98));
+            border: 1px solid rgba(219,228,243,0.95);
             border-radius: 22px;
         }
         QGroupBox {
@@ -866,6 +891,51 @@ void MainWindow::buildUi() {
             padding: 11px 13px;
             color: #142033;
             selection-background-color: #dce8ff;
+        }
+        QComboBox#filterCombo {
+            background: rgba(255,255,255,0.78);
+            border: 1px solid rgba(211,222,239,0.95);
+            border-radius: 18px;
+            padding: 14px 52px 14px 16px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #11213b;
+        }
+        QComboBox#filterCombo:hover {
+            background: rgba(255,255,255,0.94);
+            border: 1px solid rgba(190,206,232,1);
+        }
+        QComboBox#filterCombo::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 36px;
+            margin: 6px 8px 6px 0;
+            border: none;
+            border-radius: 14px;
+            background: rgba(227,236,249,0.95);
+        }
+        QComboBox#filterCombo::down-arrow {
+            image: none;
+            width: 0px;
+            height: 0px;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 7px solid #30415d;
+        }
+        QComboBox#filterCombo QAbstractItemView {
+            background: rgba(252,253,255,0.98);
+            border: 1px solid rgba(211,222,239,0.95);
+            border-radius: 18px;
+            outline: none;
+            padding: 8px;
+            selection-background-color: #dfe9ff;
+            selection-color: #10213d;
+        }
+        QComboBox#filterCombo QAbstractItemView::item {
+            min-height: 34px;
+            padding: 8px 12px;
+            margin: 3px 0;
+            border-radius: 12px;
         }
         QPlainTextEdit, QListWidget { padding-top: 12px; }
         QSlider::groove:horizontal { height: 6px; background: #dfe7f4; border-radius: 3px; }
@@ -902,9 +972,10 @@ void MainWindow::buildUi() {
         QPushButton#softCardButton, QPushButton#promptAction {
             background: rgba(248,250,255,0.98);
             border-radius: 22px;
-            padding: 14px 16px;
+            padding: 12px 14px;
             font-size: 13px;
-            line-height: 1.45;
+            line-height: 1.2;
+            text-align: center;
         }
         QPushButton#tagButton {
             background: rgba(243,248,255,0.98);
@@ -1101,8 +1172,8 @@ void MainWindow::refreshViews() {
         m_homeSubheadlineLabel->setText(
             QString("最新一条是“%1”。%2")
                 .arg(latest.title)
-                .arg(latest.tags.isEmpty() ? "你可以继续写下今天，也可以回头看看自己是怎样一路走到这里的。"
-                                           : QString("它被你放进了 %1 这些生活主题里。").arg(tagBubbleText(latest.tags))));
+                .arg(latest.tags.isEmpty() ? "继续写下今天，或回看这一段心情。"
+                                           : QString("它属于 %1。").arg(tagBubbleText(latest.tags))));
         m_companionTitleLabel->setText("此刻的你，最值得被好好放下。");
         m_companionBodyLabel->setText(comfortLineForEmotion(latest.emotion));
     } else {
@@ -1113,7 +1184,7 @@ void MainWindow::refreshViews() {
         m_statUpdateValue->setText("--");
         m_statUpdateLabel->setText("我的最后更新");
         m_homeHeadlineLabel->setText("今天的你，值得被温柔接住。");
-        m_homeSubheadlineLabel->setText("从一条很短很短的记录开始，也没有关系。");
+        m_homeSubheadlineLabel->setText("从一条很短的记录开始，也没关系。");
         m_companionTitleLabel->setText("先听听此刻的自己。");
         m_companionBodyLabel->setText("如果你还不知道怎么写，就先从今天最在意的一件小事开始。");
     }
@@ -1150,16 +1221,16 @@ void MainWindow::refreshViews() {
     const double averageEnergy = weeklyCount == 0 ? 0.0 : double(weeklyEnergy) / double(weeklyCount);
     m_weekTrendLabel->setText(
         weeklyCount == 0
-            ? "这周的我：还没有留下记录，可以先写下今天。"
-            : QString("这周的我：共记录 %1 天，最常出现的是“%2”，平均能量 %3。")
+            ? "这周：还没有记录。"
+            : QString("这周：记录 %1 天，主导情绪是“%2”，平均能量 %3。")
                   .arg(weeklyCount)
                   .arg(weeklyDominant)
                   .arg(averageEnergy, 0, 'f', 1));
 
     m_monthTrendLabel->setText(
         topTag.isEmpty()
-            ? QString("这个月的我：最亮的一天是 %1，情绪星空正在慢慢成形。").arg(monthlyBrightestDay)
-            : QString("这个月的我：最亮的一天是 %1，反复出现的生活主题是 #%2。")
+            ? QString("本月：最亮的一天是 %1。").arg(monthlyBrightestDay)
+            : QString("本月：最亮的一天是 %1，高频主题是 #%2。")
                   .arg(monthlyBrightestDay)
                   .arg(topTag));
 
@@ -1203,16 +1274,16 @@ void MainWindow::refreshViews() {
 
     m_filterHintLabel->setText(
         m_activeTagFilter.isEmpty()
-            ? "当前正在看全部情绪星。"
-            : QString("当前正在看标签 #%1 下的情绪轨迹，共 %2 颗星。")
+            ? "当前：全部情绪星"
+            : QString("当前：#%1 · %2 颗星")
                   .arg(m_activeTagFilter)
                   .arg(visibleEntries.size()));
 
     const QString timelineTag = !m_activeTagFilter.isEmpty() ? m_activeTagFilter : topTag;
     m_timelineList->clear();
     if (timelineTag.isEmpty()) {
-        m_timelineSummaryLabel->setText("当你给记录加上生活标签后，这里会把同一主题慢慢连成一条时间轴。");
-        auto *placeholder = new QListWidgetItem("还没有可以展开的标签时间轴", m_timelineList);
+        m_timelineSummaryLabel->setText("给记录加上标签后，这里会出现一条主题时间轴。");
+        auto *placeholder = new QListWidgetItem("还没有时间轴", m_timelineList);
         placeholder->setFlags(Qt::NoItemFlags);
         placeholder->setForeground(QColor("#8fa1ba"));
     } else {
@@ -1246,7 +1317,7 @@ void MainWindow::refreshViews() {
         const QDate earliestDate = timelineEntries.isEmpty() ? QDate() : timelineEntries.back().date;
 
         m_timelineSummaryLabel->setText(
-            QString("当前时间轴：#%1 · 共 %2 次记录，从 %3 到 %4。它最常把你带向“%5”，平均强度 %6，平均能量 %7。")
+            QString("#%1 · %2 次记录 · %3 到 %4 · 主导情绪 %5 · 强度 %6 · 能量 %7")
                 .arg(timelineTag)
                 .arg(timelineEntries.size())
                 .arg(earliestDate.toString("MM-dd"))
@@ -1633,7 +1704,7 @@ void MainWindow::viewLatestEntry() {
         return;
     }
     selectEntryById(m_entries.front().id);
-    m_summaryLabel->setText("已为我定位到最新的一条情绪记录。");
+    m_summaryLabel->setText("已定位到最新记录。");
 }
 
 void MainWindow::viewTodayEntry() {
@@ -1645,12 +1716,12 @@ void MainWindow::viewTodayEntry() {
             return;
         }
     }
-    m_summaryLabel->setText("我今天还没有留下记录。");
+    m_summaryLabel->setText("今天还没有记录。");
 }
 
 void MainWindow::viewRandomEntry() {
     if (m_entries.isEmpty()) {
-        m_summaryLabel->setText("我的星空档案还是空的。");
+        m_summaryLabel->setText("星空档案还是空的。");
         return;
     }
     const int index = QRandomGenerator::global()->bounded(m_entries.size());
